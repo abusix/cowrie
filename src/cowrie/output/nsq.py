@@ -32,7 +32,7 @@ class Output(cowrie.core.output.Output):
         except NoOptionError:
             tls = False
 
-        self.producer = Producer(host + ":" + str(port), auth_secret=auth_secret, tls_v1=tls)
+        self.producer = Producer(host + ":" + str(port), auth_secret=auth_secret, tls_v1=tls, tls_options={})
         self.topic = CowrieConfig().get('output_nsq', 'topic')
         self.producer.start()
 
