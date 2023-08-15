@@ -26,7 +26,7 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 # SUCH DAMAGE.
 
-from __future__ import absolute_import, division
+from __future__ import annotations
 
 import getopt
 import hashlib
@@ -43,31 +43,37 @@ from cowrie.shell.command import HoneyPotCommand
 commands = {}
 
 
-class command_scp(HoneyPotCommand):
+class Command_scp(HoneyPotCommand):
     """
     scp command
     """
-    download_path = CowrieConfig().get('honeypot', 'download_path')
-    download_path_uniq = CowrieConfig().get('honeypot', 'download_path_uniq', fallback=download_path)
 
-    def help(self):
+    download_path = CowrieConfig.get("honeypot", "download_path")
+    download_path_uniq = CowrieConfig.get(
+        "honeypot", "download_path_uniq", fallback=download_path
+    )
+
+    out_dir: str = ""
+
+    def help(self) -> None:
         self.write(
             """usage: scp [-12346BCpqrv] [-c cipher] [-F ssh_config] [-i identity_file]
            [-l limit] [-o ssh_option] [-P port] [-S program]
-           [[user@]host1:]file1 ... [[user@]host2:]file2\n""")
+           [[user@]host1:]file1 ... [[user@]host2:]file2\n"""
+        )
 
-    def start(self):
+    def start(self) -> None:
         try:
-            optlist, args = getopt.getopt(self.args, '12346BCpqrvfstdv:cFiloPS:')
+            optlist, args = getopt.getopt(self.args, "12346BCpqrvfstdv:cFiloPS:")
         except getopt.GetoptError:
             self.help()
             self.exit()
             return
 
-        self.out_dir = ''
+        self.out_dir = ""
 
         for opt in optlist:
-            if opt[0] == '-d':
+            if opt[0] == "-d":
                 self.out_dir = args[0]
                 break
 
@@ -75,44 +81,47 @@ class command_scp(HoneyPotCommand):
             outdir = self.fs.resolve_path(self.out_dir, self.protocol.cwd)
 
             if not self.fs.exists(outdir):
-                self.errorWrite('-scp: {}: No such file or directory\n'.format(self.out_dir))
+                self.errorWrite(f"-scp: {self.out_dir}: No such file or directory\n")
                 self.exit()
 
-        self.write('\x00')
-        self.write('\x00')
-        self.write('\x00')
-        self.write('\x00')
-        self.write('\x00')
-        self.write('\x00')
-        self.write('\x00')
-        self.write('\x00')
-        self.write('\x00')
-        self.write('\x00')
+        self.write("\x00")
+        self.write("\x00")
+        self.write("\x00")
+        self.write("\x00")
+        self.write("\x00")
+        self.write("\x00")
+        self.write("\x00")
+        self.write("\x00")
+        self.write("\x00")
+        self.write("\x00")
 
-    def lineReceived(self, line):
-        log.msg(eventid='cowrie.session.file_download',
-                realm='scp',
-                input=line,
-                format='INPUT (%(realm)s): %(input)s')
-        self.protocol.terminal.write('\x00')
+    def lineReceived(self, line: str) -> None:
+        log.msg(
+            eventid="cowrie.session.file_download",
+            realm="scp",
+            input=line,
+            format="INPUT (%(realm)s): %(input)s",
+        )
+        self.protocol.terminal.write("\x00")
 
-    def drop_tmp_file(self, data, name):
-        tmp_fname = '%s-%s-%s-scp_%s' % \
-                    (time.strftime('%Y%m%d-%H%M%S'),
-                     self.protocol.getProtoTransport().transportId,
-                     self.protocol.terminal.transport.session.id,
-                     re.sub('[^A-Za-z0-9]', '_', name))
+    def drop_tmp_file(self, data: bytes, name: str) -> None:
+        tmp_fname = "{}-{}-{}-scp_{}".format(
+            time.strftime("%Y%m%d-%H%M%S"),
+            self.protocol.getProtoTransport().transportId,
+            self.protocol.terminal.transport.session.id,
+            re.sub("[^A-Za-z0-9]", "_", name),
+        )
 
         self.safeoutfile = os.path.join(self.download_path, tmp_fname)
 
-        with open(self.safeoutfile, 'wb+') as f:
+        with open(self.safeoutfile, "wb+") as f:
             f.write(data)
 
-    def save_file(self, data, fname):
+    def save_file(self, data: bytes, fname: str) -> None:
         self.drop_tmp_file(data, fname)
 
         if os.path.exists(self.safeoutfile):
-            with open(self.safeoutfile, 'rb'):
+            with open(self.safeoutfile, "rb"):
                 shasum = hashlib.sha256(data).hexdigest()
                 hash_path = os.path.join(self.download_path_uniq, shasum)
 
@@ -124,36 +133,36 @@ class command_scp(HoneyPotCommand):
                 os.remove(self.safeoutfile)
                 duplicate = True
 
-            log.msg(format='SCP Uploaded file \"%(filename)s\" to %(outfile)s',
-                    eventid='cowrie.session.file_upload',
-                    filename=os.path.basename(fname),
-                    duplicate=duplicate,
-                    url=fname,
-                    outfile=shasum,
-                    shasum=shasum,
-                    destfile=fname)
-
-            self.safeoutfile = None
+            log.msg(
+                format='SCP Uploaded file "%(filename)s" to %(outfile)s',
+                eventid="cowrie.session.file_upload",
+                filename=os.path.basename(fname),
+                duplicate=duplicate,
+                url=fname,
+                outfile=shasum,
+                shasum=shasum,
+                destfile=fname,
+            )
 
             # Update the honeyfs to point to downloaded file
             self.fs.update_realfile(self.fs.getfile(fname), hash_path)
             self.fs.chown(fname, self.protocol.user.uid, self.protocol.user.gid)
 
-    def parse_scp_data(self, data):
+    def parse_scp_data(self, data: bytes) -> bytes:
         # scp data format:
         # C0XXX filesize filename\nfile_data\x00
         # 0XXX - file permissions
         # filesize - size of file in bytes in decimal notation
 
-        pos = data.find('\n')
+        pos = data.find(b"\n")
         if pos != -1:
             header = data[:pos]
 
             pos += 1
 
-            if re.match(r'^C0[\d]{3} [\d]+ [^\s]+$', header):
+            if re.match(rb"^C0[\d]{3} [\d]+ [^\s]+$", header):
 
-                r = re.search(r'C(0[\d]{3}) ([\d]+) ([^\s]+)', header)
+                r = re.search(rb"C(0[\d]{3}) ([\d]+) ([^\s]+)", header)
 
                 if r and r.group(1) and r.group(2) and r.group(3):
 
@@ -165,9 +174,9 @@ class command_scp(HoneyPotCommand):
                     d = data[pos:dend]
 
                     if self.out_dir:
-                        fname = os.path.join(self.out_dir, r.group(3))
+                        fname = os.path.join(self.out_dir, r.group(3).decode())
                     else:
-                        fname = r.group(3)
+                        fname = r.group(3).decode()
 
                     outfile = self.fs.resolve_path(fname, self.protocol.cwd)
 
@@ -175,37 +184,39 @@ class command_scp(HoneyPotCommand):
                         self.fs.mkfile(outfile, 0, 0, r.group(2), r.group(1))
                     except fs.FileNotFound:
                         # The outfile locates at a non-existing directory.
-                        self.errorWrite('-scp: {}: No such file or directory\n'.format(outfile))
-                        self.safeoutfile = None
-                        return ''
+                        self.errorWrite(f"-scp: {outfile}: No such file or directory\n")
+                        return b""
 
                     self.save_file(d, outfile)
 
-                    data = data[dend + 1:]  # cut saved data + \x00
+                    data = data[dend + 1 :]  # cut saved data + \x00
             else:
-                data = ''
+                data = b""
         else:
-            data = ''
+            data = b""
 
         return data
 
-    def handle_CTRL_D(self):
-        if self.protocol.terminal.stdinlogOpen and self.protocol.terminal.stdinlogFile and \
-                os.path.exists(self.protocol.terminal.stdinlogFile):
-            with open(self.protocol.terminal.stdinlogFile, 'rb') as f:
-                data = f.read()
-                header = data[:data.find(b'\n')]
-                if re.match(r'C0[\d]{3} [\d]+ [^\s]+', header.decode()):
-                    data = data[data.find(b'\n') + 1:]
+    def handle_CTRL_D(self) -> None:
+        if (
+            self.protocol.terminal.stdinlogOpen
+            and self.protocol.terminal.stdinlogFile
+            and os.path.exists(self.protocol.terminal.stdinlogFile)
+        ):
+            with open(self.protocol.terminal.stdinlogFile, "rb") as f:
+                data: bytes = f.read()
+                header: bytes = data[: data.find(b"\n")]
+                if re.match(rb"C0[\d]{3} [\d]+ [^\s]+", header):
+                    content = data[data.find(b"\n") + 1 :]
                 else:
-                    data = ''
+                    content = b""
 
-            if data:
-                with open(self.protocol.terminal.stdinlogFile, 'wb') as f:
-                    f.write(data)
+            if content:
+                with open(self.protocol.terminal.stdinlogFile, "wb") as f:
+                    f.write(content)
 
         self.exit()
 
 
-commands['/usr/bin/scp'] = command_scp
-commands['scp'] = command_scp
+commands["/usr/bin/scp"] = Command_scp
+commands["scp"] = Command_scp

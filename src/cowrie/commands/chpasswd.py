@@ -6,7 +6,7 @@
 This module contains the chpasswd commnad
 """
 
-from __future__ import absolute_import, division
+from __future__ import annotations
 
 import getopt
 
@@ -17,49 +17,51 @@ from cowrie.shell.command import HoneyPotCommand
 commands = {}
 
 
-class command_chpasswd(HoneyPotCommand):
-
-    def help(self):
+class Command_chpasswd(HoneyPotCommand):
+    def help(self) -> None:
         output = (
-            'Usage: chpasswd [options]',
-            '',
-            'Options:',
-            '  -c, --crypt-method METHOD     the crypt method (one of NONE DES MD5 SHA256 SHA512)',
-            '  -e, --encrypted               supplied passwords are encrypted',
-            '  -h, --help                    display this help message and exit',
-            '  -m, --md5                     encrypt the clear text password using',
-            '                                the MD5 algorithm'
-            '  -R, --root CHROOT_DIR         directory to chroot into'
-            '  -s, --sha-rounds              number of SHA rounds for the SHA*'
-            '                                crypt algorithms'
+            "Usage: chpasswd [options]",
+            "",
+            "Options:",
+            "  -c, --crypt-method METHOD     the crypt method (one of NONE DES MD5 SHA256 SHA512)",
+            "  -e, --encrypted               supplied passwords are encrypted",
+            "  -h, --help                    display this help message and exit",
+            "  -m, --md5                     encrypt the clear text password using",
+            "                                the MD5 algorithm"
+            "  -R, --root CHROOT_DIR         directory to chroot into"
+            "  -s, --sha-rounds              number of SHA rounds for the SHA*"
+            "                                crypt algorithms",
         )
         for line in output:
-            self.write(line + '\n')
+            self.write(line + "\n")
 
-    def chpasswd_application(self, contents):
+    def chpasswd_application(self, contents: bytes) -> None:
         c = 1
         try:
-            for line in contents.split(b'\n'):
+            for line in contents.split(b"\n"):
                 if len(line):
-                    u, p = line.split(b':')
+                    u, p = line.split(b":")
                     if not len(p):
-                        self.write('chpasswd: line {}: missing new password\n'.format(c))
+                        self.write(f"chpasswd: line {c}: missing new password\n")
                     else:
+                        pass
                         """
                         TODO:
                             - update shadow file
                             - update userDB.txt (???)
                             - updte auth_random.json (if in use)
                         """
-                        pass
                 c += 1
         except Exception:
-            self.write('chpasswd: line {}: missing new password\n'.format(c))
+            self.write(f"chpasswd: line {c}: missing new password\n")
 
-    def start(self):
+    def start(self) -> None:
         try:
-            opts, args = getopt.getopt(self.args, 'c:ehmr:s:',
-                                       ['crypt-method', 'encrypted', 'help', 'md5', 'root', 'sha-rounds'])
+            opts, args = getopt.getopt(
+                self.args,
+                "c:ehmr:s:",
+                ["crypt-method", "encrypted", "help", "md5", "root", "sha-rounds"],
+            )
         except getopt.GetoptError:
             self.help()
             self.exit()
@@ -72,8 +74,8 @@ class command_chpasswd(HoneyPotCommand):
                 self.exit()
                 return
             elif o in "-c":
-                if args not in ["NONE", "DES", "MD5", "SHA256", "SHA512"]:
-                    self.errorWrite("chpasswd: unsupported crypt method: {}\n".format(a))
+                if a not in ["NONE", "DES", "MD5", "SHA256", "SHA512"]:
+                    self.errorWrite(f"chpasswd: unsupported crypt method: {a}\n")
                     self.help()
                     self.exit()
 
@@ -83,16 +85,18 @@ class command_chpasswd(HoneyPotCommand):
             self.chpasswd_application(self.input_data)
             self.exit()
 
-    def lineReceived(self, line):
-        log.msg(eventid='cowrie.command.input',
-                realm='chpasswd',
-                input=line,
-                format='INPUT (%(realm)s): %(input)s')
+    def lineReceived(self, line: str) -> None:
+        log.msg(
+            eventid="cowrie.command.input",
+            realm="chpasswd",
+            input=line,
+            format="INPUT (%(realm)s): %(input)s",
+        )
         self.chpasswd_application(line.encode())
 
-    def handle_CTRL_D(self):
+    def handle_CTRL_D(self) -> None:
         self.exit()
 
 
-commands['/usr/sbin/chpasswd'] = command_chpasswd
-commands['chpasswd'] = command_chpasswd
+commands["/usr/sbin/chpasswd"] = Command_chpasswd
+commands["chpasswd"] = Command_chpasswd

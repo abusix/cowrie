@@ -5,7 +5,7 @@
 This module contains the service commnad
 """
 
-from __future__ import absolute_import, division
+from __future__ import annotations
 
 import getopt
 
@@ -14,84 +14,87 @@ from cowrie.shell.command import HoneyPotCommand
 commands = {}
 
 
-class command_service(HoneyPotCommand):
+class Command_service(HoneyPotCommand):
     """
     By Giannis Papaioannou <giannispapcod7@gmail.com>
     """
 
-    def status_all(self):
+    def status_all(self) -> None:
         """
         more services can be added here.
         """
         output = (
-            '[ + ]  acpid',
-            '[ - ]  alsa-utils',
-            '[ + ]  anacron',
-            '[ + ]  apparmor',
-            '[ + ]  apport',
-            '[ + ]  avahi-daemon',
-            '[ + ]  bluetooth',
-            '[ - ]  bootmisc.sh',
-            '[ - ]  brltty',
-            '[ - ]  checkfs.sh',
-            '[ - ]  checkroot-bootclean.sh',
-            '[ - ]  checkroot.sh',
-            '[ + ]  console-setup',
-            '[ + ]  cron',
-            '[ + ]  cups',
-            '[ + ]  cups-browsed',
-            '[ + ]  dbus',
-            '[ - ]  dns-clean',
-            '[ + ]  grub-common',
-            '[ - ]  hostname.sh',
-            '[ - ]  hwclock.sh',
-            '[ + ]  irqbalance',
-            '[ - ]  kerneloops',
-            '[ - ]  killprocs',
-            '[ + ]  kmod',
-            '[ + ]  lightdm',
-            '[ - ]  mountall-bootclean.sh',
-            '[ - ]  mountall.sh',
-            '[ - ]  mountdevsubfs.sh',
-            '[ - ]  mountkernfs.sh',
-            '[ - ]  mountnfs-bootclean.sh',
-            '[ - ]  mountnfs.sh',
-            '[ + ]  network-manager',
-            '[ + ]  networking',
-            '[ + ]  ondemand',
-            '[ + ]  open-vm-tools',
-            '[ - ]  plymouth',
-            '[ - ]  plymouth-log',
-            '[ - ]  pppd-dns',
-            '[ + ]  procps',
-            '[ - ]  rc.local',
-            '[ + ]  resolvconf',
-            '[ - ]  rsync',
-            '[ + ]  rsyslog',
-            '[ - ]  saned',
-            '[ - ]  sendsigs',
-            '[ + ]  speech-dispatcher',
-            '[ + ]  thermald',
-            '[ + ]  udev',
-            '[ + ]  ufw',
-            '[ - ]  umountfs',
-            '[ - ]  umountnfs.sh',
-            '[ - ]  umountroot',
-            '[ - ]  unattended-upgrades',
-            '[ + ]  urandom',
-            '[ - ]  uuidd',
-            '[ + ]  whoopsie',
-            '[ - ]  x11-common')
+            "[ + ]  acpid",
+            "[ - ]  alsa-utils",
+            "[ + ]  anacron",
+            "[ + ]  apparmor",
+            "[ + ]  apport",
+            "[ + ]  avahi-daemon",
+            "[ + ]  bluetooth",
+            "[ - ]  bootmisc.sh",
+            "[ - ]  brltty",
+            "[ - ]  checkfs.sh",
+            "[ - ]  checkroot-bootclean.sh",
+            "[ - ]  checkroot.sh",
+            "[ + ]  console-setup",
+            "[ + ]  cron",
+            "[ + ]  cups",
+            "[ + ]  cups-browsed",
+            "[ + ]  dbus",
+            "[ - ]  dns-clean",
+            "[ + ]  grub-common",
+            "[ - ]  hostname.sh",
+            "[ - ]  hwclock.sh",
+            "[ + ]  irqbalance",
+            "[ - ]  kerneloops",
+            "[ - ]  killprocs",
+            "[ + ]  kmod",
+            "[ + ]  lightdm",
+            "[ - ]  mountall-bootclean.sh",
+            "[ - ]  mountall.sh",
+            "[ - ]  mountdevsubfs.sh",
+            "[ - ]  mountkernfs.sh",
+            "[ - ]  mountnfs-bootclean.sh",
+            "[ - ]  mountnfs.sh",
+            "[ + ]  network-manager",
+            "[ + ]  networking",
+            "[ + ]  ondemand",
+            "[ + ]  open-vm-tools",
+            "[ - ]  plymouth",
+            "[ - ]  plymouth-log",
+            "[ - ]  pppd-dns",
+            "[ + ]  procps",
+            "[ - ]  rc.local",
+            "[ + ]  resolvconf",
+            "[ - ]  rsync",
+            "[ + ]  rsyslog",
+            "[ - ]  saned",
+            "[ - ]  sendsigs",
+            "[ + ]  speech-dispatcher",
+            "[ + ]  thermald",
+            "[ + ]  udev",
+            "[ + ]  ufw",
+            "[ - ]  umountfs",
+            "[ - ]  umountnfs.sh",
+            "[ - ]  umountroot",
+            "[ - ]  unattended-upgrades",
+            "[ + ]  urandom",
+            "[ - ]  uuidd",
+            "[ + ]  whoopsie",
+            "[ - ]  x11-common",
+        )
         for line in output:
-            self.write(line + '\n')
+            self.write(line + "\n")
 
-    def help(self):
-        output = 'Usage: service < option > | --status-all | [ service_name [ command | --full-restart ] ]'
-        self.write(output + '\n')
+    def help(self) -> None:
+        output = "Usage: service < option > | --status-all | [ service_name [ command | --full-restart ] ]"
+        self.write(output + "\n")
 
-    def call(self):
+    def call(self) -> None:
         try:
-            opts, args = getopt.gnu_getopt(self.args, 'h', ['help', 'status-all', 'full-restart'])
+            opts, args = getopt.gnu_getopt(
+                self.args, "h", ["help", "status-all", "full-restart"]
+            )
         except getopt.GetoptError:
             self.help()
             return
@@ -100,11 +103,11 @@ class command_service(HoneyPotCommand):
             self.help()
             return
 
-        for o, a in opts:
-            if o in ("--help") or o in ('-h'):
+        for o, _a in opts:
+            if o in ("--help") or o in ("-h"):
                 self.help()
                 return
-            elif o in ('--status-all'):
+            elif o in ("--status-all"):
                 self.status_all()
         """
         Ubuntu shows no response when stopping, starting
@@ -114,5 +117,5 @@ class command_service(HoneyPotCommand):
         """
 
 
-commands['/usr/sbin/service'] = command_service
-commands['service'] = command_service
+commands["/usr/sbin/service"] = Command_service
+commands["service"] = Command_service

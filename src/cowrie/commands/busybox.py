@@ -1,4 +1,4 @@
-from __future__ import absolute_import, division
+from __future__ import annotations
 
 from twisted.python import log
 
@@ -7,7 +7,9 @@ from cowrie.shell.honeypot import StdOutStdErrEmulationProtocol
 
 commands = {}
 
-busybox_help = ('''
+busybox_help = (
+    (
+        """
 BusyBox v1.20.2 (Debian 1:1.20.0-7) multi-call binary.
 Copyright (C) 1998-2011 Erik Andersen, Rob Landley, Denys Vlasenko
 and others. Licensed under GPLv2.
@@ -46,34 +48,47 @@ Currently defined functions:
     unlzma, unxz, unzip, uptime, usleep, uudecode, uuencode, vconfig, vi,
     watch, watchdog, wc, wget, which, who, whoami, xargs, xz, xzcat, yes,
     zcat
-''').strip().split('\n')
+"""
+    )
+    .strip()
+    .split("\n")
+)
 
 
-class command_busybox(HoneyPotCommand):
+class Command_busybox(HoneyPotCommand):
     """
     Fixed by Ivan Korolev (@fe7ch)
     The command should never call self.exit(), cause it will corrupt cmdstack
     """
 
-    def help(self):
+    def help(self) -> None:
         for ln in busybox_help:
-            self.errorWrite('{0}\n'.format(ln))
+            self.errorWrite(f"{ln}\n")
 
-    def call(self):
+    def call(self) -> None:
         if len(self.args) == 0:
             self.help()
             return
 
-        line = ' '.join(self.args)
+        line = " ".join(self.args)
         cmd = self.args[0]
-        cmdclass = self.protocol.getCommand(cmd, self.environ['PATH'].split(':'))
+        cmdclass = self.protocol.getCommand(cmd, self.environ["PATH"].split(":"))
         if cmdclass:
             # log found command
-            log.msg(eventid='cowrie.command.success', input=line, format='Command found: %(input)s')
+            log.msg(
+                eventid="cowrie.command.success",
+                input=line,
+                format="Command found: %(input)s",
+            )
 
             # prepare command arguments
-            pp = StdOutStdErrEmulationProtocol(self.protocol, cmdclass, self.protocol.pp.cmdargs[1:], self.input_data,
-                                               None)
+            pp = StdOutStdErrEmulationProtocol(
+                self.protocol,
+                cmdclass,
+                self.protocol.pp.cmdargs[1:],
+                self.input_data,
+                None,
+            )
 
             # insert the command as we do when chaining commands with pipes
             self.protocol.pp.insert_command(pp)
@@ -83,10 +98,10 @@ class command_busybox(HoneyPotCommand):
 
             # Place this here so it doesn't write out only if last statement
             if self.input_data:
-                self.write(self.input_data)
+                self.writeBytes(self.input_data)
         else:
-            self.write('{}: applet not found\n'.format(cmd))
+            self.write(f"{cmd}: applet not found\n")
 
 
-commands['/bin/busybox'] = command_busybox
-commands['busybox'] = command_busybox
+commands["/bin/busybox"] = Command_busybox
+commands["busybox"] = Command_busybox

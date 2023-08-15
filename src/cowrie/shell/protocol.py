@@ -2,7 +2,7 @@
 # Copyright (c) 2009-2014 Upi Tamminen <desaster@gmail.com>
 # See the COPYRIGHT file for more information
 
-from __future__ import absolute_import, division
+from __future__ import annotations
 
 import os
 import socket
@@ -18,42 +18,51 @@ from twisted.python import failure, log
 
 import cowrie.commands
 from cowrie.core.config import CowrieConfig
-from cowrie.shell import command
-from cowrie.shell import honeypot
+from cowrie.shell import command, honeypot
 
 
 class HoneyPotBaseProtocol(insults.TerminalProtocol, TimeoutMixin):
     """
     Base protocol for interactive and non-interactive use
     """
+
     commands = {}
     for c in cowrie.commands.__all__:
         try:
-            module = __import__('cowrie.commands.%s' % (c,),
-                                globals(), locals(), ['commands'])
+            module = __import__(
+                f"cowrie.commands.{c}", globals(), locals(), ["commands"]
+            )
             commands.update(module.commands)
-        except Exception as e:
+        except ImportError as e:
             exc_type, exc_value, exc_traceback = sys.exc_info()
-            log.err("Failed to import command {}: {}: {}".format(c, e, ''.join(
-                traceback.format_exception(exc_type, exc_value, exc_traceback))))
+            log.err(
+                "Failed to import command {}: {}: {}".format(
+                    c,
+                    e,
+                    "".join(
+                        traceback.format_exception(exc_type, exc_value, exc_traceback)
+                    ),
+                )
+            )
 
-    def __init__(self, user):
-        self.user = user
-        self.environ = user.environ
-        self.hostname = user.server.hostname
-        self.fs = user.server.fs
+    def __init__(self, avatar):
+        self.user = avatar
+        self.environ = avatar.environ
+        self.hostname: str = self.user.server.hostname
+        self.fs = self.user.server.fs
         self.pp = None
-        self.logintime = None
-        self.realClientIP = None
-        self.realClientPort = None
-        self.kippoIP = None
-        self.clientIP = None
-        self.sessionno = None
+        self.logintime: float
+        self.realClientIP: str
+        self.realClientPort: int
+        self.kippoIP: str
+        self.clientIP: str
+        self.sessionno: int
+        self.factory = None
 
-        if self.fs.exists(user.avatar.home):
-            self.cwd = user.avatar.home
+        if self.fs.exists(self.user.avatar.home):
+            self.cwd = self.user.avatar.home
         else:
-            self.cwd = '/'
+            self.cwd = "/"
         self.data = None
         self.password_input = False
         self.cmdstack = []
@@ -66,47 +75,44 @@ class HoneyPotBaseProtocol(insults.TerminalProtocol, TimeoutMixin):
         """
         return self.terminal.transport.session.conn.transport
 
-    def logDispatch(self, *msg, **args):
+    def logDispatch(self, **args):
         """
         Send log directly to factory, avoiding normal log dispatch
         """
-        args['sessionno'] = self.sessionno
-        pt = self.getProtoTransport()
-        pt.factory.logDispatch(*msg, **args)
+        args["sessionno"] = self.sessionno
+        self.factory.logDispatch(**args)
 
-    def connectionMade(self):
+    def connectionMade(self) -> None:
         pt = self.getProtoTransport()
 
+        self.factory = pt.factory
         self.sessionno = pt.transport.sessionno
         self.realClientIP = pt.transport.getPeer().host
         self.realClientPort = pt.transport.getPeer().port
         self.logintime = time.time()
 
-        log.msg(eventid='cowrie.session.params', arch=self.user.server.arch)
+        log.msg(eventid="cowrie.session.params", arch=self.user.server.arch)
 
-        timeout = CowrieConfig().getint('honeypot', 'interactive_timeout', fallback=180)
+        timeout = CowrieConfig.getint("honeypot", "interactive_timeout", fallback=180)
         self.setTimeout(timeout)
 
         # Source IP of client in user visible reports (can be fake or real)
-        try:
-            self.clientIP = CowrieConfig().get('honeypot', 'fake_addr')
-        except Exception:
-            self.clientIP = self.realClientIP
+        self.clientIP = CowrieConfig.get(
+            "honeypot", "fake_addr", fallback=self.realClientIP
+        )
 
         # Source IP of server in user visible reports (can be fake or real)
-        if CowrieConfig().has_option('honeypot', 'internet_facing_ip'):
-            self.kippoIP = CowrieConfig().get('honeypot', 'internet_facing_ip')
+        if CowrieConfig.has_option("honeypot", "internet_facing_ip"):
+            self.kippoIP = CowrieConfig.get("honeypot", "internet_facing_ip")
         else:
             try:
-                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                s.connect(("8.8.8.8", 80))
-                self.kippoIP = s.getsockname()[0]
+                with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                    s.connect(("8.8.8.8", 80))
+                    self.kippoIP = s.getsockname()[0]
             except Exception:
-                self.kippoIP = '192.168.0.1'
-            finally:
-                s.close()
+                self.kippoIP = "192.168.0.1"
 
-    def timeoutConnection(self):
+    def timeoutConnection(self) -> None:
         """
         this logs out when connection times out
         """
@@ -128,14 +134,14 @@ class HoneyPotBaseProtocol(insults.TerminalProtocol, TimeoutMixin):
         self.user = None
         self.environ = None
 
-    def txtcmd(self, txt):
-        class command_txtcmd(command.HoneyPotCommand):
+    def txtcmd(self, txt: str) -> object:
+        class Command_txtcmd(command.HoneyPotCommand):
             def call(self):
-                log.msg('Reading txtcmd from "{}"'.format(txt))
-                with open(txt, 'r') as f:
+                log.msg(f'Reading txtcmd from "{txt}"')
+                with open(txt, encoding="utf-8") as f:
                     self.write(f.read())
 
-        return command_txtcmd
+        return Command_txtcmd
 
     def isCommand(self, cmd):
         """
@@ -144,46 +150,45 @@ class HoneyPotBaseProtocol(insults.TerminalProtocol, TimeoutMixin):
         return True if cmd in self.commands else False
 
     def getCommand(self, cmd, paths):
-        if not len(cmd.strip()):
+        if not cmd.strip():
             return None
         path = None
         if cmd in self.commands:
             return self.commands[cmd]
-        if cmd[0] in ('.', '/'):
+        if cmd[0] in (".", "/"):
             path = self.fs.resolve_path(cmd, self.cwd)
             if not self.fs.exists(path):
                 return None
         else:
-            for i in [
-                '%s/%s' % (self.fs.resolve_path(x, self.cwd), cmd)
-                for x in paths
-            ]:
+            for i in [f"{self.fs.resolve_path(x, self.cwd)}/{cmd}" for x in paths]:
                 if self.fs.exists(i):
                     path = i
                     break
 
-        txt = os.path.normpath('{}/txtcmds/{}'.format(CowrieConfig().get('honeypot', 'share_path'), path))
+        txt = os.path.normpath(
+            "{}/txtcmds/{}".format(CowrieConfig.get("honeypot", "share_path"), path)
+        )
         if os.path.exists(txt) and os.path.isfile(txt):
             return self.txtcmd(txt)
 
         if path in self.commands:
             return self.commands[path]
 
-        log.msg("Can't find command {}".format(cmd))
+        log.msg(f"Can't find command {cmd}")
         return None
 
-    def lineReceived(self, line):
+    def lineReceived(self, line: bytes) -> None:
         """
         IMPORTANT
         Before this, all data is 'bytes'. Here it converts to 'string' and
         commands work with string rather than bytes.
         """
-        line = line.decode('utf8')
+        string = line.decode("utf8")
 
-        if len(self.cmdstack):
-            self.cmdstack[-1].lineReceived(line)
+        if self.cmdstack:
+            self.cmdstack[-1].lineReceived(string)
         else:
-            log.msg("discarding input {}".format(line))
+            log.msg(f"discarding input {string}")
 
     def call_command(self, pp, cmd, *args):
         self.pp = pp
@@ -203,7 +208,7 @@ class HoneyPotBaseProtocol(insults.TerminalProtocol, TimeoutMixin):
         r = time.time() - pt.factory.starttime
         return r
 
-    def eofReceived(self):
+    def eofReceived(self) -> None:
         # Shell received EOF, nicely exit
         """
         TODO: this should probably not go through transport, but use processprotocol to close stdin
@@ -223,31 +228,30 @@ class HoneyPotExecProtocol(HoneyPotBaseProtocol):
         commands work with string rather than bytes.
         """
         try:
-            self.execcmd = execcmd.decode('utf8')
+            self.execcmd = execcmd.decode("utf8")
         except UnicodeDecodeError:
-            log.err("Unusual execcmd: {}".format(repr(execcmd)))
+            log.err(f"Unusual execcmd: {execcmd!r}")
 
         HoneyPotBaseProtocol.__init__(self, avatar)
 
-    def connectionMade(self):
+    def connectionMade(self) -> None:
         HoneyPotBaseProtocol.connectionMade(self)
         self.setTimeout(60)
         self.cmdstack = [honeypot.HoneyPotShell(self, interactive=False)]
         # TODO: quick and dirty fix to deal with \n separated commands
         # HoneypotShell() needs a rewrite to better work with pending input
-        self.cmdstack[0].lineReceived("; ".join(self.execcmd.split('\n')))
+        self.cmdstack[0].lineReceived("; ".join(self.execcmd.split("\n")))
 
     def keystrokeReceived(self, keyID, modifier):
         self.input_data += keyID
 
 
 class HoneyPotInteractiveProtocol(HoneyPotBaseProtocol, recvline.HistoricRecvLine):
-
     def __init__(self, avatar):
         recvline.HistoricRecvLine.__init__(self)
         HoneyPotBaseProtocol.__init__(self, avatar)
 
-    def connectionMade(self):
+    def connectionMade(self) -> None:
         self.displayMOTD()
 
         HoneyPotBaseProtocol.connectionMade(self)
@@ -255,43 +259,45 @@ class HoneyPotInteractiveProtocol(HoneyPotBaseProtocol, recvline.HistoricRecvLin
 
         self.cmdstack = [honeypot.HoneyPotShell(self)]
 
-        self.keyHandlers.update({
-            b'\x01': self.handle_HOME,  # CTRL-A
-            b'\x02': self.handle_LEFT,  # CTRL-B
-            b'\x03': self.handle_CTRL_C,  # CTRL-C
-            b'\x04': self.handle_CTRL_D,  # CTRL-D
-            b'\x05': self.handle_END,  # CTRL-E
-            b'\x06': self.handle_RIGHT,  # CTRL-F
-            b'\x08': self.handle_BACKSPACE,  # CTRL-H
-            b'\x09': self.handle_TAB,
-            b'\x0b': self.handle_CTRL_K,  # CTRL-K
-            b'\x0c': self.handle_CTRL_L,  # CTRL-L
-            b'\x0e': self.handle_DOWN,  # CTRL-N
-            b'\x10': self.handle_UP,  # CTRL-P
-            b'\x15': self.handle_CTRL_U,  # CTRL-U
-            b'\x16': self.handle_CTRL_V,  # CTRL-V
-            b'\x1b': self.handle_ESC,  # ESC
-        })
+        self.keyHandlers.update(
+            {
+                b"\x01": self.handle_HOME,  # CTRL-A
+                b"\x02": self.handle_LEFT,  # CTRL-B
+                b"\x03": self.handle_CTRL_C,  # CTRL-C
+                b"\x04": self.handle_CTRL_D,  # CTRL-D
+                b"\x05": self.handle_END,  # CTRL-E
+                b"\x06": self.handle_RIGHT,  # CTRL-F
+                b"\x08": self.handle_BACKSPACE,  # CTRL-H
+                b"\x09": self.handle_TAB,
+                b"\x0b": self.handle_CTRL_K,  # CTRL-K
+                b"\x0c": self.handle_CTRL_L,  # CTRL-L
+                b"\x0e": self.handle_DOWN,  # CTRL-N
+                b"\x10": self.handle_UP,  # CTRL-P
+                b"\x15": self.handle_CTRL_U,  # CTRL-U
+                b"\x16": self.handle_CTRL_V,  # CTRL-V
+                b"\x1b": self.handle_ESC,  # ESC
+            }
+        )
 
-    def displayMOTD(self):
+    def displayMOTD(self) -> None:
         try:
-            self.terminal.write(self.fs.file_contents('/etc/motd'))
+            self.terminal.write(self.fs.file_contents("/etc/motd"))
         except Exception:
             pass
 
-    def timeoutConnection(self):
+    def timeoutConnection(self) -> None:
         """
         this logs out when connection times out
         """
-        self.terminal.write(b'timed out waiting for input: auto-logout\n')
+        self.terminal.write(b"timed out waiting for input: auto-logout\n")
         HoneyPotBaseProtocol.timeoutConnection(self)
 
     def connectionLost(self, reason):
         HoneyPotBaseProtocol.connectionLost(self, reason)
         recvline.HistoricRecvLine.connectionLost(self, reason)
-        self.keyHandlers = None
+        self.keyHandlers = {}
 
-    def initializeScreen(self):
+    def initializeScreen(self) -> None:
         """
         Overriding super to prevent terminal.reset()
         """
@@ -306,10 +312,10 @@ class HoneyPotInteractiveProtocol(HoneyPotBaseProtocol, recvline.HistoricRecvLin
         """
         Easier way to implement password input?
         """
-        if self.mode == 'insert':
+        if self.mode == "insert":
             self.lineBuffer.insert(self.lineBufferIndex, ch)
         else:
-            self.lineBuffer[self.lineBufferIndex:self.lineBufferIndex + 1] = [ch]
+            self.lineBuffer[self.lineBufferIndex : self.lineBufferIndex + 1] = [ch]
         self.lineBufferIndex += 1
         if not self.password_input:
             self.terminal.write(ch)
@@ -317,27 +323,27 @@ class HoneyPotInteractiveProtocol(HoneyPotBaseProtocol, recvline.HistoricRecvLin
     def handle_RETURN(self):
         if len(self.cmdstack) == 1:
             if self.lineBuffer:
-                self.historyLines.append(b''.join(self.lineBuffer))
+                self.historyLines.append(b"".join(self.lineBuffer))
             self.historyPosition = len(self.historyLines)
         return recvline.RecvLine.handle_RETURN(self)
 
-    def handle_CTRL_C(self):
-        if len(self.cmdstack):
+    def handle_CTRL_C(self) -> None:
+        if self.cmdstack:
             self.cmdstack[-1].handle_CTRL_C()
 
-    def handle_CTRL_D(self):
-        if len(self.cmdstack):
+    def handle_CTRL_D(self) -> None:
+        if self.cmdstack:
             self.cmdstack[-1].handle_CTRL_D()
 
-    def handle_TAB(self):
-        if len(self.cmdstack):
+    def handle_TAB(self) -> None:
+        if self.cmdstack:
             self.cmdstack[-1].handle_TAB()
 
-    def handle_CTRL_K(self):
+    def handle_CTRL_K(self) -> None:
         self.terminal.eraseToLineEnd()
-        self.lineBuffer = self.lineBuffer[0:self.lineBufferIndex]
+        self.lineBuffer = self.lineBuffer[0 : self.lineBufferIndex]
 
-    def handle_CTRL_L(self):
+    def handle_CTRL_L(self) -> None:
         """
         Handle a 'form feed' byte - generally used to request a screen
         refresh/redraw.
@@ -346,17 +352,17 @@ class HoneyPotInteractiveProtocol(HoneyPotBaseProtocol, recvline.HistoricRecvLin
         self.terminal.cursorHome()
         self.drawInputLine()
 
-    def handle_CTRL_U(self):
+    def handle_CTRL_U(self) -> None:
         for _ in range(self.lineBufferIndex):
             self.terminal.cursorBackward()
             self.terminal.deleteCharacter()
-        self.lineBuffer = self.lineBuffer[self.lineBufferIndex:]
+        self.lineBuffer = self.lineBuffer[self.lineBufferIndex :]
         self.lineBufferIndex = 0
 
-    def handle_CTRL_V(self):
+    def handle_CTRL_V(self) -> None:
         pass
 
-    def handle_ESC(self):
+    def handle_ESC(self) -> None:
         pass
 
 
@@ -367,7 +373,6 @@ class HoneyPotInteractiveTelnetProtocol(HoneyPotInteractiveProtocol):
     """
 
     def __init__(self, avatar):
-        recvline.HistoricRecvLine.__init__(self)
         HoneyPotInteractiveProtocol.__init__(self, avatar)
 
     def getProtoTransport(self):

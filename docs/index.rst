@@ -11,15 +11,17 @@ Welcome to Cowrie's documentation!
    :caption: Contents:
 
    README.rst
-   FAQ.rst
+   CONTRIBUTING.rst
    LICENSE.rst
+   FAQ.rst
    INSTALL.rst
    CHANGELOG.rst
-   CONTRIBUTING.rst
    PROXY.rst
    HONEYFS.rst
    BACKEND_POOL.rst
    SNAPSHOTS.rst
+   OUTPUT.rst
+   datadog/README.rst
    docker/README.rst
    elk/README.rst
    graylog/README.rst
@@ -30,6 +32,7 @@ Welcome to Cowrie's documentation!
    squid/README.rst
    supervisor/README.rst
    systemd/README.rst
+   threatjammer/README.rst
 
 Indices and tables
 ==================
