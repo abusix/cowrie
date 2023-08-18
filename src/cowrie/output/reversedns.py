@@ -1,6 +1,6 @@
-from __future__ import absolute_import, division
+from __future__ import annotations
 
-# `ipaddress` system library only on Python3.4+
+from functools import lru_cache
 import ipaddress
 
 from twisted.internet import defer
@@ -16,12 +16,13 @@ class Output(cowrie.core.output.Output):
     Output plugin used for reverse DNS lookup
     """
 
+    timeout: list[int] = [3]
+
     def start(self):
         """
         Start Output Plugin
         """
-        self.timeout = [CowrieConfig().getint(
-            'output_reversedns', 'timeout', fallback=3)]
+        self.timeout = [CowrieConfig.getint("output_reversedns", "timeout", fallback=3)]
 
     def stop(self):
         """
@@ -33,33 +34,40 @@ class Output(cowrie.core.output.Output):
         """
         Process log entry
         """
+
         def processConnect(result):
             """
             Create log messages for connect events
             """
+            if result is None:
+                return
             payload = result[0][0].payload
             log.msg(
-                eventid='cowrie.reversedns.connect',
-                session=entry['session'],
+                eventid="cowrie.reversedns.connect",
+                session=entry["session"],
                 format="reversedns: PTR record for IP %(src_ip)s is %(ptr)s"
-                       " ttl=%(ttl)i",
-                src_ip=entry['src_ip'],
+                " ttl=%(ttl)i",
+                src_ip=entry["src_ip"],
                 ptr=str(payload.name),
-                ttl=payload.ttl)
+                ttl=payload.ttl,
+            )
 
         def processForward(result):
             """
             Create log messages for forward events
             """
+            if result is None:
+                return
             payload = result[0][0].payload
             log.msg(
-                eventid='cowrie.reversedns.forward',
-                session=entry['session'],
+                eventid="cowrie.reversedns.forward",
+                session=entry["session"],
                 format="reversedns: PTR record for IP %(dst_ip)s is %(ptr)s"
-                       " ttl=%(ttl)i",
-                dst_ip=entry['dst_ip'],
+                " ttl=%(ttl)i",
+                dst_ip=entry["dst_ip"],
                 ptr=str(payload.name),
-                ttl=payload.ttl)
+                ttl=payload.ttl,
+            )
 
         def cbError(failure):
             if failure.type == defer.TimeoutError:
@@ -71,17 +79,18 @@ class Output(cowrie.core.output.Output):
                 log.msg("reversedns: Error in DNS lookup")
                 failure.printTraceback()
 
-        if entry['eventid'] == 'cowrie.session.connect':
-            d = self.reversedns(entry['src_ip'])
+        if entry["eventid"] == "cowrie.session.connect":
+            d = self.reversedns(entry["src_ip"])
             if d is not None:
                 d.addCallback(processConnect)
                 d.addErrback(cbError)
-        elif entry['eventid'] == 'cowrie.direct-tcpip.request':
-            d = self.reversedns(entry['dst_ip'])
+        elif entry["eventid"] == "cowrie.direct-tcpip.request":
+            d = self.reversedns(entry["dst_ip"])
             if d is not None:
                 d.addCallback(processForward)
                 d.addErrback(cbError)
 
+    @lru_cache(maxsize=1000)
     def reversedns(self, addr):
         """
         Perform a reverse DNS lookup on an IP

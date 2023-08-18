@@ -1,75 +1,63 @@
-# -*- test-case-name: Cowrie Test Cases -*-
-
 # Copyright (c) 2018 Michel Oosterhof
 # See LICENSE for details.
-
-"""
-Tests for general shell interaction and tee command
-"""
-
-from __future__ import absolute_import, division
+from __future__ import annotations
 
 import os
+import unittest
 
-from twisted.trial import unittest
+from cowrie.shell.protocol import HoneyPotInteractiveProtocol
+from cowrie.test.fake_server import FakeAvatar, FakeServer
+from cowrie.test.fake_transport import FakeTransport
 
-from cowrie.shell import protocol
-from cowrie.test import fake_server, fake_transport
-
-os.environ["HONEYPOT_DATA_PATH"] = "../data"
-os.environ["HONEYPOT_DOWNLOAD_PATH"] = "/tmp"
-os.environ["SHELL_FILESYSTEM"] = "../share/cowrie/fs.pickle"
+os.environ["COWRIE_HONEYPOT_DATA_PATH"] = "data"
+os.environ["COWRIE_HONEYPOT_DOWNLOAD_PATH"] = "/tmp"
+os.environ["COWRIE_SHELL_FILESYSTEM"] = "share/cowrie/fs.pickle"
 
 PROMPT = b"root@unitTest:~# "
 
 
 class ShellTeeCommandTests(unittest.TestCase):
+    """Tests for cowrie/commands/tee.py."""
 
-    def setUp(self):
-        self.proto = protocol.HoneyPotInteractiveProtocol(fake_server.FakeAvatar(fake_server.FakeServer()))
-        self.tr = fake_transport.FakeTransport("1.1.1.1", "1111")
-        self.proto.makeConnection(self.tr)
+    proto = HoneyPotInteractiveProtocol(FakeAvatar(FakeServer()))
+    tr = FakeTransport("", "31337")
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.proto.makeConnection(cls.tr)
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.proto.connectionLost("tearDown From Unit Test")
+
+    def setUp(self) -> None:
         self.tr.clear()
 
-    def test_tee_command_001(self):
-        """
-        No such file
-        """
-        self.proto.lineReceived(b'tee /a/b/c/d\n')
-        self.assertEquals(self.tr.value(), b'tee: /a/b/c/d: No such file or directory\n')
-
-    def test_tee_command_002(self):
-        """
-        argument - (stdin)
-        """
-        self.proto.lineReceived(b'tee /a/b/c/d\n')
+    def test_tee_command_001(self) -> None:
+        self.proto.lineReceived(b"tee /a/b/c/d\n")
+        self.assertEqual(self.tr.value(), b"tee: /a/b/c/d: No such file or directory\n")
+        # tee still waiting input from stdin
         self.proto.handle_CTRL_C()
-        self.assertEquals(self.tr.value(), b'tee: /a/b/c/d: No such file or directory\n^C\n' + PROMPT)
 
-    def test_tee_command_003(self):
-        """
-        test ignore stdin when called without '-'
-        """
-        self.proto.lineReceived(b'tee a\n')
-        self.proto.lineReceived(b'test\n')
+    def test_tee_command_002(self) -> None:
+        self.proto.lineReceived(b"tee /a/b/c/d\n")
+        self.proto.handle_CTRL_C()
+        self.assertEqual(
+            self.tr.value(), b"tee: /a/b/c/d: No such file or directory\n^C\n" + PROMPT
+        )
+
+    def test_tee_command_003(self) -> None:
+        self.proto.lineReceived(b"tee a\n")
+        self.proto.lineReceived(b"test\n")
         self.proto.handle_CTRL_D()
-        self.assertEquals(self.tr.value(), b'test\n' + PROMPT)
+        self.assertEqual(self.tr.value(), b"test\n" + PROMPT)
 
-    def test_tee_command_004(self):
-        """
-        test handle of stdin
-        """
-        self.proto.lineReceived(b'echo test | tee\n')
-        self.assertEquals(self.tr.value(), b'test\n' + PROMPT)
+    def test_tee_command_004(self) -> None:
+        self.proto.lineReceived(b"echo test | tee\n")
+        self.assertEqual(self.tr.value(), b"test\n" + PROMPT)
 
-    def test_tee_command_005(self):
-        """
-        test handle of CTRL_C
-        """
-        self.proto.lineReceived(b'tee\n')
-        self.proto.lineReceived(b'test\n')
+    def test_tee_command_005(self) -> None:
+        self.proto.lineReceived(b"tee\n")
+        self.proto.lineReceived(b"test\n")
         self.proto.handle_CTRL_D()
-        self.assertEquals(self.tr.value(), b'test\n' + PROMPT)
-
-    def tearDown(self):
-        self.proto.connectionLost("tearDown From Unit Test")
+        self.assertEqual(self.tr.value(), b"test\n" + PROMPT)

@@ -1,11 +1,13 @@
+from __future__ import annotations
 from threading import Lock
 
-from twisted.internet import protocol, reactor
+from twisted.internet import protocol
+from twisted.internet import reactor
 
 
 class ClientProtocol(protocol.Protocol):
-    def dataReceived(self, data):
-        self.server_protocol.transport.write(data)
+    def dataReceived(self, data: bytes) -> None:
+        self.server_protocol.transport.write(data)  # type: ignore
 
     def connectionLost(self, reason):
         self.server_protocol.transport.loseConnection()
@@ -51,9 +53,9 @@ class ServerProtocol(protocol.Protocol):
 
 
 class ServerFactory(protocol.Factory):
-    def __init__(self, dst_ip, dst_port):
-        self.dst_ip = dst_ip
-        self.dst_port = dst_port
+    def __init__(self, dst_ip: str, dst_port: int) -> None:
+        self.dst_ip: str = dst_ip
+        self.dst_port: int = dst_port
 
     def buildProtocol(self, addr):
         return ServerProtocol(self.dst_ip, self.dst_port)
@@ -66,9 +68,12 @@ class NATService:
     This class provides TCP proxies that associate accessible IPs in the backend pool's machine to the internal
     IPs used by guests, like a NAT.
     """
+
     def __init__(self):
         self.bindings = {}
-        self.lock = Lock()  # we need to be thread-safe just in case, this is accessed from multiple clients
+        self.lock = (
+            Lock()
+        )  # we need to be thread-safe just in case, this is accessed from multiple clients
 
     def request_binding(self, guest_id, dst_ip, ssh_port, telnet_port):
         self.lock.acquire()
@@ -78,10 +83,17 @@ class NATService:
                 # increase connected
                 self.bindings[guest_id][0] += 1
 
-                return self.bindings[guest_id][1]._realPortNumber, self.bindings[guest_id][2]._realPortNumber
+                return (
+                    self.bindings[guest_id][1]._realPortNumber,
+                    self.bindings[guest_id][2]._realPortNumber,
+                )
             else:
-                nat_ssh = reactor.listenTCP(0, ServerFactory(dst_ip, ssh_port), interface='0.0.0.0')
-                nat_telnet = reactor.listenTCP(0, ServerFactory(dst_ip, telnet_port), interface='0.0.0.0')
+                nat_ssh = reactor.listenTCP(
+                    0, ServerFactory(dst_ip, ssh_port), interface="0.0.0.0"
+                )
+                nat_telnet = reactor.listenTCP(
+                    0, ServerFactory(dst_ip, telnet_port), interface="0.0.0.0"
+                )
                 self.bindings[guest_id] = [1, nat_ssh, nat_telnet]
 
                 return nat_ssh._realPortNumber, nat_telnet._realPortNumber

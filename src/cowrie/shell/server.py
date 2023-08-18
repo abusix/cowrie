@@ -26,19 +26,21 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 # SUCH DAMAGE.
 
-from __future__ import absolute_import, division
+
+from __future__ import annotations
 
 import json
 import random
 from configparser import NoOptionError
 
-import twisted.python.log as log
+from twisted.cred.portal import IRealm
+from twisted.python import log
 
 from cowrie.core.config import CowrieConfig
 from cowrie.shell import fs
 
 
-class CowrieServer(object):
+class CowrieServer:
     """
     In traditional Kippo each connection gets its own simulated machine.
     This is not always ideal, sometimes two connections come from the same
@@ -47,25 +49,27 @@ class CowrieServer(object):
     This class represents a 'virtual server' that can be shared between
     multiple Cowrie connections
     """
+
     fs = None
     process = None
-    avatars = []
-    hostname = CowrieConfig().get('honeypot', 'hostname')
+    hostname: str = CowrieConfig.get("honeypot", "hostname")
 
-    def __init__(self, realm):
+    def __init__(self, realm: IRealm) -> None:
         try:
-            arches = [arch.strip() for arch in CowrieConfig().get('shell', 'arch').split(',')]
+            arches = [
+                arch.strip() for arch in CowrieConfig.get("shell", "arch").split(",")
+            ]
             self.arch = random.choice(arches)
         except NoOptionError:
-            self.arch = 'linux-x64-lsb'
+            self.arch = "linux-x64-lsb"
 
-        log.msg("Initialized emulated server as architecture: {}".format(self.arch))
+        log.msg(f"Initialized emulated server as architecture: {self.arch}")
 
     def getCommandOutput(self, file):
         """
         Reads process output from JSON file.
         """
-        with open(file) as f:
+        with open(file, encoding="utf-8") as f:
             cmdoutput = json.load(f)
         return cmdoutput
 
@@ -73,9 +77,11 @@ class CowrieServer(object):
         """
         Do this so we can trigger it later. Not all sessions need file system
         """
-        self.fs = fs.HoneyPotFilesystem(None, self.arch, home)
+        self.fs = fs.HoneyPotFilesystem(self.arch, home)
 
         try:
-            self.process = self.getCommandOutput(CowrieConfig().get('shell', 'processes'))['command']['ps']
+            self.process = self.getCommandOutput(
+                CowrieConfig.get("shell", "processes")
+            )["command"]["ps"]
         except NoOptionError:
             self.process = None

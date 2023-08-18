@@ -5,7 +5,7 @@
 dd commands
 """
 
-from __future__ import absolute_import, division
+from __future__ import annotations
 
 import re
 
@@ -17,52 +17,52 @@ from cowrie.shell.fs import FileNotFound
 commands = {}
 
 
-class command_dd(HoneyPotCommand):
+class Command_dd(HoneyPotCommand):
     """
     dd command
     """
 
-    ddargs = {}
+    ddargs: dict[str, str] = {}
 
-    def start(self):
-        if not self.args or self.args[0] == '>':
+    def start(self) -> None:
+        if not self.args or self.args[0] == ">":
             return
 
         for arg in self.args:
-            if arg.find('=') == -1:
-                self.write('unknown operand: {}'.format(arg))
+            if arg.find("=") == -1:
+                self.write(f"unknown operand: {arg}")
                 HoneyPotCommand.exit(self)
-            operand, value = arg.split('=')
-            if operand not in ('if', 'bs', 'of', 'count'):
-                self.write('unknown operand: {}'.format(operand))
+            operand, value = arg.split("=")
+            if operand not in ("if", "bs", "of", "count"):
+                self.write(f"unknown operand: {operand}")
                 self.exit(success=False)
             self.ddargs[operand] = value
 
         if self.input_data:
-            self.write(self.input_data)
+            self.writeBytes(self.input_data)
         else:
             bSuccess = True
             c = -1
             block = 512
-            if 'if' in self.ddargs:
-                iname = self.ddargs['if']
+            if "if" in self.ddargs:
+                iname = self.ddargs["if"]
                 pname = self.fs.resolve_path(iname, self.protocol.cwd)
                 if self.fs.isdir(pname):
-                    self.errorWrite('dd: {}: Is a directory\n'.format(iname))
+                    self.errorWrite(f"dd: {iname}: Is a directory\n")
                     bSuccess = False
 
                 if bSuccess:
-                    if 'bs' in self.ddargs:
-                        block = parse_size(self.ddargs['bs'])
+                    if "bs" in self.ddargs:
+                        block = parse_size(self.ddargs["bs"])
                         if block <= 0:
-                            self.errorWrite('dd: invalid number \'{}\'\n'.format(block))
+                            self.errorWrite(f"dd: invalid number '{block}'\n")
                             bSuccess = False
 
                 if bSuccess:
-                    if 'count' in self.ddargs:
-                        c = int(self.ddargs['count'])
+                    if "count" in self.ddargs:
+                        c = int(self.ddargs["count"])
                         if c < 0:
-                            self.errorWrite('dd: invalid number \'{}\'\n'.format(c))
+                            self.errorWrite(f"dd: invalid number '{c}'\n")
                             bSuccess = False
 
                 if bSuccess:
@@ -78,34 +78,36 @@ class command_dd(HoneyPotCommand):
                             else:
                                 self.writeBytes(data)
                     except FileNotFound:
-                        self.errorWrite('dd: {}: No such file or directory\n'.format(iname))
+                        self.errorWrite(f"dd: {iname}: No such file or directory\n")
                         bSuccess = False
 
                 self.exit(success=bSuccess)
 
-    def exit(self, success=True):
+    def exit(self, success: bool = True) -> None:
         if success is True:
-            self.write('0+0 records in\n')
-            self.write('0+0 records out\n')
-            self.write('0 bytes transferred in 0.695821 secs (0 bytes/sec)\n')
+            self.write("0+0 records in\n")
+            self.write("0+0 records out\n")
+            self.write("0 bytes transferred in 0.695821 secs (0 bytes/sec)\n")
         HoneyPotCommand.exit(self)
 
-    def lineReceived(self, line):
-        log.msg(eventid='cowrie.session.input',
-                realm='dd',
-                input=line,
-                format='INPUT (%(realm)s): %(input)s')
+    def lineReceived(self, line: str) -> None:
+        log.msg(
+            eventid="cowrie.session.input",
+            realm="dd",
+            input=line,
+            format="INPUT (%(realm)s): %(input)s",
+        )
 
-    def handle_CTRL_D(self):
+    def handle_CTRL_D(self) -> None:
         self.exit()
 
 
-def parse_size(param):
+def parse_size(param: str) -> int:
     """
     Parse dd arguments that indicate block sizes
     Return 0 in case of illegal input
     """
-    pattern = r'^(\d+)(c|w|b|kB|K|MB|M|xM|GB|G|T|TB|P|PB|E|EB|Z|ZB|Y|YB)?$'
+    pattern = r"^(\d+)(c|w|b|kB|K|MB|M|xM|GB|G|T|TB|P|PB|E|EB|Z|ZB|Y|YB)?$"
     z = re.search(pattern, param)
     if not z:
         return 0
@@ -114,29 +116,29 @@ def parse_size(param):
 
     if not letters:
         multiplier = 1
-    elif letters == 'c':
+    elif letters == "c":
         multiplier = 1
-    elif letters == 'w':
+    elif letters == "w":
         multiplier = 2
-    elif letters == 'b':
+    elif letters == "b":
         multiplier = 512
-    elif letters == 'kB':
+    elif letters == "kB":
         multiplier = 1000
-    elif letters == 'K':
+    elif letters == "K":
         multiplier = 1024
-    elif letters == 'MB':
-        multiplier = 1000*1000
-    elif letters == 'M' or letters == 'xM':
-        multiplier = 1024*1024
-    elif letters == 'GB':
-        multiplier = 1000*1000*1000
-    elif letters == 'G':
-        multiplier = 1024*1024*1024
+    elif letters == "MB":
+        multiplier = 1000 * 1000
+    elif letters == "M" or letters == "xM":
+        multiplier = 1024 * 1024
+    elif letters == "GB":
+        multiplier = 1000 * 1000 * 1000
+    elif letters == "G":
+        multiplier = 1024 * 1024 * 1024
     else:
         multiplier = 1
 
     return digits * multiplier
 
 
-commands['/bin/dd'] = command_dd
-commands['dd'] = command_dd
+commands["/bin/dd"] = Command_dd
+commands["dd"] = Command_dd

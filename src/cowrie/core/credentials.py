@@ -26,11 +26,13 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 # SUCH DAMAGE.
 
-from __future__ import absolute_import, division
+from __future__ import annotations
 
-from twisted.cred.credentials import ICredentials, IUsernamePassword
+from collections.abc import Callable
 
 from zope.interface import implementer
+
+from twisted.cred.credentials import ICredentials, IUsernamePassword
 
 
 class IUsername(ICredentials):
@@ -64,31 +66,33 @@ class IPluggableAuthenticationModulesIP(ICredentials):
 
 
 @implementer(IPluggableAuthenticationModulesIP)
-class PluggableAuthenticationModulesIP(object):
+class PluggableAuthenticationModulesIP:
     """
     Twisted removed IPAM in 15, adding in Cowrie now
     """
 
-    def __init__(self, username, pamConversion, ip):
-        self.username = username
-        self.pamConversion = pamConversion
-        self.ip = ip
+    def __init__(self, username: str, pamConversion: Callable, ip: str) -> None:
+        self.username: str = username
+        self.pamConversion: Callable = pamConversion
+        self.ip: str = ip
 
 
 @implementer(IUsername)
-class Username(object):
-
-    def __init__(self, username):
-        self.username = username
+class Username:
+    def __init__(self, username: str):
+        self.username: str = username
 
 
 @implementer(IUsernamePasswordIP)
-class UsernamePasswordIP(object):
+class UsernamePasswordIP:
     """
     This credential interface also provides an IP address
     """
 
-    def __init__(self, username, password, ip):
-        self.username = username
-        self.password = password
-        self.ip = ip
+    def __init__(self, username: str, password: str, ip: str) -> None:
+        self.username: str = username
+        self.password: str = password
+        self.ip: str = ip
+
+    def checkPassword(self, password: str) -> bool:
+        return self.password == password

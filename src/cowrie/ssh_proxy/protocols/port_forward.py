@@ -29,12 +29,14 @@
 # Inspiration and code snippets used from:
 # http://www.codeproject.com/Tips/612847/Generate-a-quick-and-easy-custom-pcap-file-using-P
 
+from __future__ import annotations
+
 from cowrie.ssh_proxy.protocols import base_protocol
 
 
 class PortForward(base_protocol.BaseProtocol):
     def __init__(self, uuid, chan_name, ssh):
-        super(PortForward, self).__init__(uuid, chan_name, ssh)
+        super().__init__(uuid, chan_name, ssh)
 
-    def parse_packet(self, parent, payload):
+    def parse_packet(self, parent: str, payload: bytes) -> None:
         pass

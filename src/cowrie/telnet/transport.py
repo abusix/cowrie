@@ -5,7 +5,8 @@ Telnet Transport and Authentication for the Honeypot
 @author: Olivier Bilodeau <obilodeau@gosecure.ca>
 """
 
-from __future__ import absolute_import, division
+from __future__ import annotations
+
 
 import time
 import uuid
@@ -18,23 +19,28 @@ from cowrie.core.config import CowrieConfig
 
 
 class CowrieTelnetTransport(TelnetTransport, TimeoutMixin):
-
+    """
+    CowrieTelnetTransport
+    """
     def connectionMade(self):
-        self.transportId = uuid.uuid4().hex[:12]
+        self.transportId: str = uuid.uuid4().hex[:12]
         sessionno = self.transport.sessionno
-
         self.startTime = time.time()
-        self.setTimeout(CowrieConfig().getint('honeypot', 'authentication_timeout', fallback=120))
+        self.setTimeout(
+            CowrieConfig.getint("honeypot", "authentication_timeout", fallback=120)
+        )
 
-        log.msg(eventid='cowrie.session.connect',
-                format='New connection: %(src_ip)s:%(src_port)s (%(dst_ip)s:%(dst_port)s) [session: %(session)s]',
-                src_ip=self.transport.getPeer().host,
-                src_port=self.transport.getPeer().port,
-                dst_ip=self.transport.getHost().host,
-                dst_port=self.transport.getHost().port,
-                session=self.transportId,
-                sessionno='T{0}'.format(str(sessionno)),
-                protocol='telnet')
+        log.msg(
+            eventid="cowrie.session.connect",
+            format="New connection: %(src_ip)s:%(src_port)s (%(dst_ip)s:%(dst_port)s) [session: %(session)s]",
+            src_ip=self.transport.getPeer().host,
+            src_port=self.transport.getPeer().port,
+            dst_ip=self.transport.getHost().host,
+            dst_port=self.transport.getHost().port,
+            session=self.transportId,
+            sessionno=f"T{sessionno!s}",
+            protocol="telnet",
+        )
         TelnetTransport.connectionMade(self)
 
     def write(self, data):
@@ -46,7 +52,7 @@ class CowrieTelnetTransport(TelnetTransport, TimeoutMixin):
         It is kind of a hack. I asked for a better solution here:
         http://stackoverflow.com/questions/35087250/twisted-telnet-server-how-to-avoid-nested-crlf
         """
-        self.transport.write(data.replace(b'\r\n', b'\n'))
+        self.transport.write(data.replace(b"\r\n", b"\n"))
 
     def timeoutConnection(self):
         """
@@ -63,9 +69,11 @@ class CowrieTelnetTransport(TelnetTransport, TimeoutMixin):
         self.setTimeout(None)
         TelnetTransport.connectionLost(self, reason)
         duration = time.time() - self.startTime
-        log.msg(eventid='cowrie.session.closed',
-                format='Connection lost after %(duration)d seconds',
-                duration=duration)
+        log.msg(
+            eventid="cowrie.session.closed",
+            format="Connection lost after %(duration)d seconds",
+            duration=duration,
+        )
 
     def willChain(self, option):
         return self._chainNegotiation(None, self.will, option)
@@ -92,12 +100,12 @@ class CowrieTelnetTransport(TelnetTransport, TimeoutMixin):
         # Possible other types include OptionRefused, AlreadyDisabled, AlreadyEnabled, ConnectionDone, ConnectionLost
         elif f.type is AssertionError:
             log.msg(
-                'Client tried to illegally refuse to disable an option; ignoring, but undefined behavior may result')
+                "Client tried to illegally refuse to disable an option; ignoring, but undefined behavior may result"
+            )
             # TODO: Is ignoring this violation of the protocol the proper behavior?
             # Should the connection be terminated instead?
             # The telnetd package on Ubuntu (netkit-telnet) does all negotiation before sending the login prompt,
             # but does handle client-initiated negotiation at any time.
-        return None  # This Failure has been handled, no need to continue processing errbacks
 
     def _chainNegotiation(self, res, func, option):
         return func(option).addErrback(self._handleNegotiationError, func, option)

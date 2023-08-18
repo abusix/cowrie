@@ -4,11 +4,12 @@
 tee command
 
 """
+from __future__ import annotations
 
-from __future__ import absolute_import, division
 
 import getopt
 import os
+from typing import Optional
 
 from twisted.python import log
 
@@ -18,39 +19,43 @@ from cowrie.shell.fs import FileNotFound
 commands = {}
 
 
-class command_tee(HoneyPotCommand):
+class Command_tee(HoneyPotCommand):
     """
     tee command
     """
 
     append = False
-    teeFiles = []
+    teeFiles: list[str] = []
     writtenBytes = 0
     ignoreInterupts = False
 
-    def start(self):
+    def start(self) -> None:
         try:
-            optlist, args = getopt.gnu_getopt(self.args, 'aip', ['help', 'append', 'version'])
+            optlist, args = getopt.gnu_getopt(
+                self.args, "aip", ["help", "append", "version"]
+            )
         except getopt.GetoptError as err:
-            self.errorWrite("tee: invalid option -- '{}'\nTry 'tee --help' for more information.\n".format(err.opt))
+            self.errorWrite(
+                f"tee: invalid option -- '{err.opt}'\nTry 'tee --help' for more information.\n"
+            )
             self.exit()
             return
 
-        for o, a in optlist:
-            if o in ('--help'):
+        for o, _a in optlist:
+            if o in ("--help"):
                 self.help()
                 self.exit()
                 return
-            elif o in ('-a', '--append'):
+            elif o in ("-a", "--append"):
                 self.append = True
-            elif o in ('-a', '--ignore-interrupts'):
+            elif o in ("-a", "--ignore-interrupts"):
                 self.ignoreInterupts = True
 
         for arg in args:
             pname = self.fs.resolve_path(arg, self.protocol.cwd)
 
             if self.fs.isdir(pname):
-                self.errorWrite('tee: {}: Is a directory\n'.format(arg))
+                self.errorWrite(f"tee: {arg}: Is a directory\n")
                 continue
 
             try:
@@ -65,57 +70,59 @@ class command_tee(HoneyPotCommand):
                 self.fs.mkfile(pname, 0, 0, 0, 0o644)
 
             except FileNotFound:
-                self.errorWrite('tee: {}: No such file or directory\n'.format(arg))
+                self.errorWrite(f"tee: {arg}: No such file or directory\n")
 
         if self.input_data:
             self.output(self.input_data)
             self.exit()
 
-    def write_to_file(self, data):
+    def write_to_file(self, data: bytes) -> None:
         self.writtenBytes += len(data)
         for outf in self.teeFiles:
             self.fs.update_size(outf, self.writtenBytes)
 
-    def output(self, input):
+    def output(self, inb: Optional[bytes]) -> None:
         """
         This is the tee output, if no file supplied
         """
-        if 'decode' in dir(input):
-            input = input.decode('UTF-8')
-        if not isinstance(input, str):
-            pass
+        if inb:
+            inp = inb.decode("utf-8")
+        else:
+            return
 
-        lines = input.split('\n')
+        lines = inp.split("\n")
         if lines[-1] == "":
             lines.pop()
         for line in lines:
-            self.write(line + '\n')
-            self.write_to_file(line + '\n')
+            self.write(line + "\n")
+            self.write_to_file(line.encode("utf-8") + b"\n")
 
-    def lineReceived(self, line):
+    def lineReceived(self, line: str) -> None:
         """
         This function logs standard input from the user send to tee
         """
-        log.msg(eventid='cowrie.session.input',
-                realm='tee',
-                input=line,
-                format='INPUT (%(realm)s): %(input)s')
+        log.msg(
+            eventid="cowrie.session.input",
+            realm="tee",
+            input=line,
+            format="INPUT (%(realm)s): %(input)s",
+        )
 
-        self.output(line)
+        self.output(line.encode("utf-8"))
 
-    def handle_CTRL_C(self):
+    def handle_CTRL_C(self) -> None:
         if not self.ignoreInterupts:
-            log.msg('Received CTRL-C, exiting..')
-            self.write('^C\n')
+            log.msg("Received CTRL-C, exiting..")
+            self.write("^C\n")
             self.exit()
 
-    def handle_CTRL_D(self):
+    def handle_CTRL_D(self) -> None:
         """
         ctrl-d is end-of-file, time to terminate
         """
         self.exit()
 
-    def help(self):
+    def help(self) -> None:
         self.write(
             """Usage: tee [OPTION]... [FILE]...
 Copy standard input to each FILE, and also to standard output.
@@ -144,5 +151,5 @@ or available locally via: info '(coreutils) tee invocation'
         )
 
 
-commands['/bin/tee'] = command_tee
-commands['tee'] = command_tee
+commands["/bin/tee"] = Command_tee
+commands["tee"] = Command_tee
