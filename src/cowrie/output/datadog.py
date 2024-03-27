@@ -9,7 +9,6 @@ import platform
 
 from io import BytesIO
 from twisted.internet import reactor
-from twisted.internet.ssl import ClientContextFactory
 from twisted.python import log
 from twisted.web import client, http_headers
 from twisted.web.client import FileBodyProducer
@@ -33,24 +32,25 @@ class Output(cowrie.core.output.Output):
         self.service = CowrieConfig.get(
             "output_datadog", "service", fallback="honeypot"
         )
-        self.hostname = CowrieConfig.get("output_datadog", "hostname", fallback=platform.node())
-        contextFactory = WebClientContextFactory()
-        self.agent = client.Agent(reactor, contextFactory)
+        self.hostname = CowrieConfig.get(
+            "output_datadog", "hostname", fallback=platform.node()
+        )
+        self.agent = client.Agent(reactor)
 
     def stop(self) -> None:
         pass
 
-    def write(self, logentry):
-        for i in list(logentry.keys()):
+    def write(self, event):
+        for i in list(event.keys()):
             # Remove twisted 15 legacy keys
             if i.startswith("log_"):
-                del logentry[i]
+                del event[i]
         message = [
             {
                 "ddsource": self.ddsource,
                 "ddtags": self.ddtags,
                 "hostname": self.hostname,
-                "message": json.dumps(logentry),
+                "message": json.dumps(event),
                 "service": self.service,
             }
         ]
@@ -65,8 +65,3 @@ class Output(cowrie.core.output.Output):
         headers = http_headers.Headers(base_headers)
         body = FileBodyProducer(BytesIO(json.dumps(entry).encode("utf8")))
         self.agent.request(b"POST", self.url, headers, body)
-
-
-class WebClientContextFactory(ClientContextFactory):
-    def getContext(self, hostname, port):
-        return ClientContextFactory.getContext(self)

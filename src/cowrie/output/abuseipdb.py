@@ -133,17 +133,17 @@ class Output(output.Output):
     def stop(self):
         self.logbook.cleanup_and_dump_state(mode=1)
 
-    def write(self, ev):
+    def write(self, event):
         if self.logbook.sleeping:
             return
 
-        if ev["eventid"].rsplit(".", 1)[0] == "cowrie.login":
+        if event["eventid"].rsplit(".", 1)[0] == "cowrie.login":
             # If tolerance_attempts was set to 1 or 0, we don't need to
             # keep logs so our handling of the event is different than if > 1
             if self.tolerance_attempts <= 1:
-                self.intolerant_observer(ev["src_ip"], time(), ev["username"])
+                self.intolerant_observer(event["src_ip"], time(), event["username"])
             else:
-                self.tolerant_observer(ev["src_ip"], time())
+                self.tolerant_observer(event["src_ip"], time())
 
     def intolerant_observer(self, ip, t, uname):
         # Checks if already reported; if yes, checks if we can rereport yet.
@@ -358,7 +358,7 @@ class Reporter:
             "ip": ip,
             "categories": "18,22",
             "comment": "Cowrie Honeypot: Unauthorised SSH/Telnet login attempt "
-            'with user "{}" at {}'.format(uname, t),
+            f'with user "{uname}" at {t}',
         }
 
         self.http_request(params)

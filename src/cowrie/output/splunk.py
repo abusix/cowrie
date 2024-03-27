@@ -12,11 +12,13 @@ import json
 from io import BytesIO
 from typing import Any
 
-from twisted.internet import reactor
-from twisted.internet.ssl import ClientContextFactory
+from zope.interface import implementer
+
+from twisted.internet import reactor, ssl
 from twisted.python import log
 from twisted.web import client, http_headers
 from twisted.web.client import FileBodyProducer
+from twisted.web.iweb import IPolicyForHTTPS
 
 import cowrie.core.output
 from cowrie.core.config import CowrieConfig
@@ -34,22 +36,23 @@ class Output(cowrie.core.output.Output):
     def start(self) -> None:
         self.token = CowrieConfig.get("output_splunk", "token")
         self.url = CowrieConfig.get("output_splunk", "url").encode("utf8")
-        self.index = CowrieConfig.get("output_splunk", "index", fallback=None)
-        self.source = CowrieConfig.get("output_splunk", "source", fallback=None)
-        self.sourcetype = CowrieConfig.get("output_splunk", "sourcetype", fallback=None)
+        self.index = CowrieConfig.get("output_splunk", "index", fallback="main")
+        self.source = CowrieConfig.get("output_splunk", "source", fallback="cowrie")
+        self.sourcetype = CowrieConfig.get(
+            "output_splunk", "sourcetype", fallback="cowrie"
+        )
         self.host = CowrieConfig.get("output_splunk", "host", fallback=None)
-        contextFactory = WebClientContextFactory()
-        # contextFactory.method = TLSv1_METHOD
+        contextFactory = WhitelistContextFactory()
         self.agent = client.Agent(reactor, contextFactory)
 
     def stop(self) -> None:
         pass
 
-    def write(self, logentry):
-        for i in list(logentry.keys()):
+    def write(self, event):
+        for i in list(event.keys()):
             # Remove twisted 15 legacy keys
             if i.startswith("log_"):
-                del logentry[i]
+                del event[i]
 
         splunkentry = {}
         if self.index:
@@ -61,8 +64,8 @@ class Output(cowrie.core.output.Output):
         if self.host:
             splunkentry["host"] = self.host
         else:
-            splunkentry["host"] = logentry["sensor"]
-        splunkentry["event"] = logentry
+            splunkentry["host"] = event["sensor"]
+        splunkentry["event"] = event
         self.postentry(splunkentry)
 
     def postentry(self, entry):
@@ -111,6 +114,7 @@ class Output(cowrie.core.output.Output):
         return d
 
 
-class WebClientContextFactory(ClientContextFactory):
-    def getContext(self, hostname, port):
-        return ClientContextFactory.getContext(self)
+@implementer(IPolicyForHTTPS)
+class WhitelistContextFactory:
+    def creatorForNetloc(self, hostname, port):
+        return ssl.CertificateOptions(verify=False)

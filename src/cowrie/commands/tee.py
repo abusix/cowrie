@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import getopt
 import os
-from typing import Optional
 
 from twisted.python import log
 
@@ -25,7 +24,7 @@ class Command_tee(HoneyPotCommand):
     """
 
     append = False
-    teeFiles: list[str] = []
+    teeFiles: list[str]
     writtenBytes = 0
     ignoreInterupts = False
 
@@ -40,6 +39,8 @@ class Command_tee(HoneyPotCommand):
             )
             self.exit()
             return
+
+        self.teeFiles = []
 
         for o, _a in optlist:
             if o in ("--help"):
@@ -81,7 +82,7 @@ class Command_tee(HoneyPotCommand):
         for outf in self.teeFiles:
             self.fs.update_size(outf, self.writtenBytes)
 
-    def output(self, inb: Optional[bytes]) -> None:
+    def output(self, inb: bytes | None) -> None:
         """
         This is the tee output, if no file supplied
         """

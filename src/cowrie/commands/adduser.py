@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import random
-from typing import Optional
 
 from twisted.internet import reactor
 
@@ -17,7 +16,7 @@ O_O, O_Q, O_P = 1, 2, 3
 
 class Command_adduser(HoneyPotCommand):
     item: int
-    output: list[tuple[int, str]] = [
+    output: tuple[tuple[int, str], ...] = (
         (O_O, "Adding user `%(username)s' ...\n"),
         (O_O, "Adding new group `%(username)s' (1001) ...\n"),
         (
@@ -47,8 +46,8 @@ class Command_adduser(HoneyPotCommand):
         (O_O, "Deleting group `%(username)s' (1001) ...\n"),
         (O_O, "Deleting home directory `/home/%(username)s' ...\n"),
         (O_Q, "Try again? [Y/n] "),
-    ]
-    username: Optional[str] = None
+    )
+    username: str | None = None
 
     def start(self) -> None:
         self.item = 0

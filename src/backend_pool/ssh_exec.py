@@ -3,6 +3,7 @@ from __future__ import annotations
 from twisted.conch.ssh import channel, common, connection, transport, userauth
 from twisted.internet import defer, protocol
 from twisted.internet import reactor
+from twisted.internet.interfaces import IAddress
 
 
 class PasswordAuth(userauth.SSHUserAuthClient):
@@ -25,16 +26,17 @@ class CommandChannel(channel.SSHChannel):
 
         self.data = b""
 
-    def channelOpen(self, data):
+    def channelOpen(self, specificData: bytes) -> None:
+        assert self.conn is not None
         self.conn.sendRequest(self, "exec", common.NS(self.command), wantReply=True)
 
     def dataReceived(self, data: bytes) -> None:
         self.data += data
 
-    def extReceived(self, dataType, data):
+    def extReceived(self, dataType: int, data: bytes) -> None:
         self.data += data
 
-    def closeReceived(self):
+    def closeReceived(self) -> None:
         self.conn.transport.loseConnection()
         self.done_deferred.callback(self.data)
 
@@ -50,7 +52,7 @@ class ClientConnection(connection.SSHConnection):
         self.done_deferred = done_deferred
         self.callback = callback
 
-    def serviceStarted(self):
+    def serviceStarted(self) -> None:
         self.openChannel(
             CommandChannel(self.command, self.done_deferred, self.callback, conn=self)
         )
@@ -64,10 +66,10 @@ class ClientCommandTransport(transport.SSHClientTransport):
         self.done_deferred = done_deferred
         self.callback = callback
 
-    def verifyHostKey(self, pub_key, fingerprint):
+    def verifyHostKey(self, hostKey, fingerprint):
         return defer.succeed(True)
 
-    def connectionSecure(self):
+    def connectionSecure(self) -> None:
         self.requestService(
             PasswordAuth(
                 self.username,
@@ -85,7 +87,7 @@ class ClientCommandFactory(protocol.ClientFactory):
         self.done_deferred = done_deferred
         self.callback = callback
 
-    def buildProtocol(self, addr):
+    def buildProtocol(self, addr: IAddress) -> ClientCommandTransport:
         return ClientCommandTransport(
             self.username,
             self.password,

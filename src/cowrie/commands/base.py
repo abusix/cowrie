@@ -11,7 +11,6 @@ import getopt
 import random
 import re
 import time
-from typing import Optional
 from collections.abc import Callable
 
 from twisted.internet import error, reactor
@@ -133,7 +132,6 @@ commands["who"] = Command_who
 
 class Command_echo(HoneyPotCommand):
     def call(self) -> None:
-
         newline = True
         escape_decode = False
 
@@ -847,7 +845,7 @@ class Command_passwd(HoneyPotCommand):
         self.write("Enter new UNIX password: ")
         self.protocol.password_input = True
         self.callbacks = [self.ask_again, self.finish]
-        self.passwd: Optional[str] = None
+        self.passwd: str | None = None
 
     def ask_again(self, line: str) -> None:
         self.passwd = line
@@ -1009,7 +1007,6 @@ commands["yes"] = Command_yes
 class Command_sh(HoneyPotCommand):
     def call(self) -> None:
         if self.args and self.args[0].strip() == "-c":
-
             line = " ".join(self.args[1:])
 
             # it might be sh -c 'echo "sometext"', so don't use line.strip('\'\"')

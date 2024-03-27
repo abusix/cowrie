@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import getopt
 import re
-from typing import Optional
 from re import Match
 
 from twisted.python import log
@@ -29,16 +28,14 @@ class Command_awk(HoneyPotCommand):
     """
 
     # code is an array of dictionaries contain the regexes to match and the code to execute
-    code: list[dict[str, str]] = []
+    code: list[dict[str, str]]
 
     def start(self) -> None:
         try:
             optlist, args = getopt.gnu_getopt(self.args, "Fvf", ["version"])
         except getopt.GetoptError as err:
             self.errorWrite(
-                "awk: invalid option -- '{}'\nTry 'awk --help' for more information.\n".format(
-                    err.opt
-                )
+                f"awk: invalid option -- '{err.opt}'\nTry 'awk --help' for more information.\n"
             )
             self.exit()
             return
@@ -110,7 +107,7 @@ class Command_awk(HoneyPotCommand):
         self.write(words)
         self.write("\n")
 
-    def output(self, inb: Optional[bytes]) -> None:
+    def output(self, inb: bytes | None) -> None:
         """
         This is the awk output.
         """
@@ -130,7 +127,6 @@ class Command_awk(HoneyPotCommand):
                 return ""
 
         for inputline in inputlines:
-
             # split by whitespace and add full line in $0 as awk does.
             # TODO: change here to use custom field separator
             words = inputline.split()

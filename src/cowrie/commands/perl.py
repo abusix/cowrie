@@ -82,6 +82,7 @@ class Command_perl(HoneyPotCommand):
                 "Unrecognized switch: -" + err.opt + " (-h will show valid options).\n"
             )
             self.exit()
+            return
 
         # Parse options
         for o, _a in opts:
@@ -101,9 +102,7 @@ class Command_perl(HoneyPotCommand):
                 self.exit()
             else:
                 self.write(
-                    'Can\'t open perl script "{}": No such file or directory\n'.format(
-                        value
-                    )
+                    f'Can\'t open perl script "{value}": No such file or directory\n'
                 )
                 self.exit()
 

@@ -6,7 +6,6 @@ import ftplib
 import getopt
 import os
 import socket
-from typing import Optional, Union
 
 from twisted.python import log
 
@@ -27,7 +26,7 @@ class FTP(ftplib.FTP):
         host: str = "",
         port: int = 0,
         timeout: float = -999.0,
-        source_address: Optional[tuple[str, int]] = None,
+        source_address: tuple[str, int] | None = None,
     ) -> str:
         if host != "":
             self.host = host
@@ -46,7 +45,7 @@ class FTP(ftplib.FTP):
         return self.welcome
 
     def ntransfercmd(
-        self, cmd: str, rest: Union[int, str, None] = None
+        self, cmd: str, rest: int | str | None = None
     ) -> tuple[socket.socket, int]:
         size = 0
         if self.passiveserver:
@@ -166,9 +165,7 @@ Download a file via FTP
         path = os.path.dirname(fakeoutfile)
         if not path or not self.fs.exists(path) or not self.fs.isdir(path):
             self.write(
-                "ftpget: can't open '{}': No such file or directory".format(
-                    self.local_file
-                )
+                f"ftpget: can't open '{self.local_file}': No such file or directory"
             )
             self.exit()
             return
@@ -250,9 +247,7 @@ Download a file via FTP
             ftp.connect(host=self.host, port=self.port, timeout=30)
         except Exception as e:
             log.msg(
-                "FTP connect failed: host={}, port={}, err={}".format(
-                    self.host, self.port, str(e)
-                )
+                f"FTP connect failed: host={self.host}, port={self.port}, err={e!s}"
             )
             self.write("ftpget: can't connect to remote host: Connection refused\n")
             return False
@@ -280,7 +275,7 @@ Download a file via FTP
             self.write(f"ftpget: unexpected server response to USER: {e!s}\n")
             try:
                 ftp.quit()
-            except socket.timeout:
+            except TimeoutError:
                 pass
             return False
 
@@ -299,7 +294,7 @@ Download a file via FTP
             self.write(f"ftpget: unexpected server response to USER: {e!s}\n")
             try:
                 ftp.quit()
-            except socket.timeout:
+            except TimeoutError:
                 pass
             return False
 
@@ -310,7 +305,7 @@ Download a file via FTP
 
         try:
             ftp.quit()
-        except socket.timeout:
+        except TimeoutError:
             pass
 
         return True

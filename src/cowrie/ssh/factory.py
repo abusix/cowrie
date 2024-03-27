@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from configparser import NoOptionError
 import time
-from typing import Optional
 
 from twisted.conch.openssh_compat import primes
 from twisted.conch.ssh import factory, keys, transport
@@ -31,11 +30,11 @@ class CowrieSSHFactory(factory.SSHFactory):
     They listen directly to the TCP port
     """
 
-    starttime: Optional[float] = None
-    privateKeys: dict[bytes, bytes] = {}
-    publicKeys: dict[bytes, bytes] = {}
+    starttime: float | None = None
+    privateKeys: dict[bytes, bytes]
+    publicKeys: dict[bytes, bytes]
     primes = None
-    portal: Optional[tp.Portal] = None  # gets set by plugin
+    portal: tp.Portal | None = None  # gets set by plugin
     ourVersionString: bytes = CowrieConfig.get(
         "ssh", "version", fallback="SSH-2.0-OpenSSH_6.0p1 Debian-4+deb7u2"
     ).encode("ascii")
@@ -43,6 +42,8 @@ class CowrieSSHFactory(factory.SSHFactory):
     def __init__(self, backend, pool_handler):
         self.pool_handler = pool_handler
         self.backend: str = backend
+        self.privateKeys = {}
+        self.publicKeys = {}
         self.services = {
             b"ssh-userauth": ProxySSHAuthServer
             if self.backend == "proxy"

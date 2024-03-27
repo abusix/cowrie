@@ -43,11 +43,10 @@ homepage = "https://www.cowrie.org/"
 repository = "https://github.com/cowrie/cowrie"
 
 [project.scripts]
-fsctl = "bin/fsctl"
-asciinema = "bin/asciinema:main"
-cowrie = "bin/cowrie:main"
-creatfs = "bin/createfs:main"
-playlog = "bin/playlog:main"
+fsctl = "cowrie.scripts.fsctl:run"
+asciinema = "cowrie.scripts.asciinema:run"
+creatfs = "cowrie.scripts.createfs:run"
+playlog = "cowrie.scripts.playlog:run"
 
 [project.optional-dependencies]
 csirtg = ["csirtgsdk==1.1.5"]
@@ -91,7 +90,7 @@ disallow_subclassing_any    = true
 warn_unused_ignores         = true
 
 # Getting these passing should be easy
-strict_concatenate          = true
+# strict_concatenate          = true
 
 # These are too strict for us at the moment
 
@@ -105,21 +104,43 @@ disallow_untyped_calls      = false
 
 
 [tool.pylint."MESSAGES CONTROL"]
-disable = ["R0901", "R0902", "R0903", "R0904", "R0912", "R0913", "R0914", "R0915", "C0103", "C0114", "C0115", "C0116", "C0301"]
+disable = ["R0901", "R0902", "R0903", "R0904", "R0912", "R0913", "R0914", "R0915", "C0103", "C0114", "C0115", "C0116", "C0301", "W0201"]
+ignored-classes = ["twisted.internet.reactor"]
 
 
 [tool.pyright]
-
+include = ["src"]
+typeCheckingMode = "strict"
+reportArgumentType = "none"
+reportAssignmentType = "none"
+reportAttributeAccessIssue = "none"
+reportCallIssue = "information"
+reportGeneralTypeIssues = "information"
+reportIncompatibleMethodOverride = "information"
+reportIncompatibleVariableOverride = "none"
+reportMissingImports = "none"
+reportMissingModuleSource = "none"
+reportOperatorIssue = "information"
+reportOptionalCall = "information"
+reportOptionalMemberAccess = "none"
+reportOptionalOperand = "information"
+reportPossiblyUnboundVariable = "information"
+reportUnsupportedDunderAll = "information"
 
 [tool.ruff]
 line-length = 88
 
 # Enable Pyflakes `E` and `F` codes by default.
-select = ["E", "F", "UP", "YTT", "B", "T20", "Q", "RUF"]
-ignore = ["E501", "UP007", "B019", "RUF001"]
+lint.select = ["E", "F", "UP", "YTT", "B", "T20", "Q", "RUF"]
+lint.ignore = ["E501", "UP007", "B019", "RUF001", "UP038"]
 
 # Assume Python 3.10.
 target-version = "py310"
+
+
+# Ignore `T201` (print) in all scripts
+[tool.ruff.lint.per-file-ignores]
+"src/cowrie/scripts/*" = ["T201"]
 
 
 [tool.setuptools]
